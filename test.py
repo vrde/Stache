@@ -1,7 +1,7 @@
 try:
-    from __init__ import Stache, render, render_js
+    from __init__ import Stache, render
 except ImportError:
-    from . import Stache, render, render_js
+    from . import Stache, render
 
 import timeit
 import subprocess
@@ -14,55 +14,25 @@ def verify(output, template, data):
     assert result == output
     assert result == result_iter
 
-def verify_js(output, template, data):
-    import json
-    script = render_js(template)
-    print("%s with %s" % (template, data))
-    result = subprocess.check_output(["node", "-e", "console.log({0}({1}))".format(script,  json.dumps(data))]).strip()
-    print("Result: %s\n" % result)
-    assert output.lower() == result
-
 def verify_partial(stachio, output, template, data={}):
     print("%s with %s" % (template, data))
     result = stachio.render_template(template, data)
     print("Result: %s\n" % result)
     assert output == result
 
-def verify_js_partial(stachio, output, template, data={}):
-    import json
-    print("%s with %s" % (template, data))
-    script = stachio.render_js_template(template)
-    result = subprocess.check_output(["node", "-e", "console.log({0}({1}))".format(script,  json.dumps(data))]).strip()
-    print("Result: %s\n" % result)
-    assert output.lower() == result
-
 def bench(output, template, data):
     t = timeit.Timer("render('%s', %s)" % (template, data), "from __main__ import render")
     print("%.2f\tusec/test > python %s with %s" % (1000000 * t.timeit(number=10000)/10000, template, data))
-
-def bench_js(output, template, data):
-    t = timeit.Timer("render_js('%s')" % (template), "from __main__ import render_js")
-    print("%.2f\tusec/test > js %s with %s" % (1000000 * t.timeit(number=10000)/10000, template, data))
 
 def bench_partial(stachio, output, template, data={}):
     t = timeit.Timer("s.render_template('%s', %s)" % (template, data),  "from __main__ import test_partials, s")
     print("%.2f\tusec/test > python partial %s with %s" % (1000000 * t.timeit(number=10000)/10000, template, data))
 
-def bench_js_partial(stachio, output, template, data={}):
-    t = timeit.Timer("s.render_template('%s', %s)" % (template, data),  "from __main__ import test_partials, s")
-    print("%.2f\tusec/test > js_partial %s with %s" % (1000000 * t.timeit(number=10000)/10000, template, data))
-
 def bare(output, template, data):
     return render(template, data)
 
-def bare_js(output, template, data):
-    script = render_js(template)
-
 def bare_partial(stachio, output, template, data={}):
     return stachio.render_template(template, data)
-
-def bare_js_partial(stachio, output, template, data={}):
-    return stachio.render_js_template(template)
 
 def test(method=bare):
     # test tag lookup
@@ -156,49 +126,24 @@ def test_partials(method=bare_partial):
     yield method, s, 'abb', 'n', dict(b=[1,2,3])
     yield method, s, 'ab123d', 'o', dict(b=[1,2,3])
 
-def test_js(method=verify_js):
-    return
-    for x in test(method):
-        yield x
-
 def null(*args, **kwargs):
     return
 
-def run(method=bare, method_partial=bare_partial, method_js=bare_js, method_js_partial=bare_js_partial):
+def run(method=bare, method_partial=bare_partial):
     for x in test(method):
         x[0](*x[1:])
     for x in test_partials(method_partial):
         x[0](*x[1:])
-    for x in test_js(method_js):
-        x[0](*x[1:])
-    for x in test_partials(method_js_partial):
-        x[0](*x[1:])
 
-def test_js_all():
-    return
-    expected = []
-    script = 't = ('
-    script += s.render_all_js()
-    script += ')();\n'
-    for x in test_partials():
-        script += "console.log(t['{1}']([{2}]));\n".format(x[2], x[3], json.dumps(x[4]))
-        expected.append(x[2])
-    res = subprocess.check_output(["node", "-e", script]).split('\n')[:-1]
-    assert res == expected
 
 if __name__ == '__main__':
     
     print('starting tests')
-    run(verify, verify_partial, verify_js, verify_js_partial)
+    run(verify, verify_partial)
     print('finished tests')
-    print('testing js export templates')
-    test_js_all()
     print('starting individual benchmarks')
-    run(bench, bench_partial, bench_js, bench_js_partial)
+    run(bench, bench_partial)
     print('starting combined python benchmark')
-    t = timeit.Timer("run(method_js=null, method_js_partial=null)", "from __main__ import run, bare, null")
+    t = timeit.Timer("run()", "from __main__ import run, bare, null")
     print("%.2f\tusec/all tests" % (1000000 * t.timeit(number=10000)/10000))
-    print('starting combined js benchmark')
-    t = timeit.Timer("run(method=null, method_partial=null)", "from __main__ import run, bare, null")
-    print("%.2f\tusec/all js tests" % (1000000 * t.timeit(number=10000)/10000))
 
